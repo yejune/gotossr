@@ -5,35 +5,35 @@ import (
 	"os"
 	"path"
 
-	"github.com/yejune/go-react-ssr/internal/jsruntime"
+	"github.com/yejune/go-react-ssr/internal/cache"
 	"github.com/yejune/go-react-ssr/internal/utils"
 )
 
 // Config is the config for starting the engine
 type Config struct {
-	AppEnv              string                  // "production" or "development"
-	AssetRoute          string                  // The route to serve assets from, e.g. "/assets"
-	FrontendDir         string                  // The path to the frontend folder, where your React app lives
-	GeneratedTypesPath  string                  // The path to the generated types file
-	PropsStructsPath    string                  // The path to the Go structs file, the structs will be generated to TS types
-	LayoutFilePath      string                  // The path to the layout file, relative to the frontend dir
-	LayoutCSSFilePath   string                  // The path to the layout css file, relative to the frontend dir
-	TailwindConfigPath  string                  // The path to the tailwind config file
-	HotReloadServerPort int                     // The port to run the hot reload server on, 3001 by default
-	JSRuntime           jsruntime.RuntimeType   // The JavaScript runtime to use: "quickjs" (default) or "v8"
-	JSRuntimePoolSize   int                     // The number of JS runtimes to keep in the pool, 10 by default
+	AppEnv              string            // "production" or "development"
+	AssetRoute          string            // The route to serve assets from, e.g. "/assets"
+	FrontendDir         string            // The path to the frontend folder, where your React app lives
+	GeneratedTypesPath  string            // The path to the generated types file
+	PropsStructsPath    string            // The path to the Go structs file, the structs will be generated to TS types
+	LayoutFilePath      string            // The path to the layout file, relative to the frontend dir
+	LayoutCSSFilePath   string            // The path to the layout css file, relative to the frontend dir
+	TailwindConfigPath  string            // The path to the tailwind config file
+	HotReloadServerPort int               // The port to run the hot reload server on, 3001 by default
+	JSRuntimePoolSize   int               // The number of JS runtimes to keep in the pool, 10 by default
+	CacheConfig         cache.CacheConfig // Cache configuration (local or redis)
 }
 
 // Validate validates the config
 func (c *Config) Validate() error {
 	if !checkPathExists(c.FrontendDir) {
-		return fmt.Errorf("frontend dir ar %s does not exist", c.FrontendDir)
+		return fmt.Errorf("frontend dir at %s does not exist", c.FrontendDir)
 	}
 	if os.Getenv("APP_ENV") != "production" && !checkPathExists(c.PropsStructsPath) {
 		return fmt.Errorf("props structs path at %s does not exist", c.PropsStructsPath)
 	}
 	if c.LayoutFilePath != "" && !checkPathExists(path.Join(c.FrontendDir, c.LayoutFilePath)) {
-		return fmt.Errorf("layout css file path at %s/%s does not exist", c.FrontendDir, c.LayoutCSSFilePath)
+		return fmt.Errorf("layout file path at %s/%s does not exist", c.FrontendDir, c.LayoutFilePath)
 	}
 	if c.LayoutCSSFilePath != "" && !checkPathExists(path.Join(c.FrontendDir, c.LayoutCSSFilePath)) {
 		return fmt.Errorf("layout css file path at %s/%s does not exist", c.FrontendDir, c.LayoutCSSFilePath)
@@ -43,9 +43,6 @@ func (c *Config) Validate() error {
 	}
 	if c.HotReloadServerPort == 0 {
 		c.HotReloadServerPort = 3001
-	}
-	if c.JSRuntime == "" {
-		c.JSRuntime = jsruntime.RuntimeQuickJS
 	}
 	if c.JSRuntimePoolSize == 0 {
 		c.JSRuntimePoolSize = 10

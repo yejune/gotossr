@@ -7,31 +7,31 @@ import (
 // Cache defines the interface for build caching
 type Cache interface {
 	// GetServerBuild retrieves a server build from cache
-	GetServerBuild(filePath string) (reactbuilder.BuildResult, bool)
+	GetServerBuild(filePath string) (reactbuilder.BuildResult, bool, error)
 	// SetServerBuild stores a server build in cache
-	SetServerBuild(filePath string, build reactbuilder.BuildResult)
+	SetServerBuild(filePath string, build reactbuilder.BuildResult) error
 	// RemoveServerBuild removes a server build from cache
-	RemoveServerBuild(filePath string)
+	RemoveServerBuild(filePath string) error
 
 	// GetClientBuild retrieves a client build from cache
-	GetClientBuild(filePath string) (reactbuilder.BuildResult, bool)
+	GetClientBuild(filePath string) (reactbuilder.BuildResult, bool, error)
 	// SetClientBuild stores a client build in cache
-	SetClientBuild(filePath string, build reactbuilder.BuildResult)
+	SetClientBuild(filePath string, build reactbuilder.BuildResult) error
 	// RemoveClientBuild removes a client build from cache
-	RemoveClientBuild(filePath string)
+	RemoveClientBuild(filePath string) error
 
 	// Route mapping
-	SetParentFile(routeID, filePath string)
-	GetRouteIDSForParentFile(filePath string) []string
-	GetAllRouteIDS() []string
-	GetRouteIDSWithFile(filePath string) []string
+	SetParentFile(routeID, filePath string) error
+	GetRouteIDSForParentFile(filePath string) ([]string, error)
+	GetAllRouteIDS() ([]string, error)
+	GetRouteIDSWithFile(filePath string) ([]string, error)
 
 	// Dependencies
-	SetParentFileDependencies(filePath string, dependencies []string)
-	GetParentFilesFromDependency(dependencyPath string) []string
+	SetParentFileDependencies(filePath string, dependencies []string) error
+	GetParentFilesFromDependency(dependencyPath string) ([]string, error)
 
 	// Clear removes all cached data
-	Clear()
+	Clear() error
 }
 
 // CacheType represents the type of cache to use

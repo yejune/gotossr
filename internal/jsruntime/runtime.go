@@ -26,11 +26,15 @@ type JSRuntime interface {
 // Pool manages a pool of JS runtimes for reuse
 type Pool struct {
 	runtimeType RuntimeType
-	pool        sync.Pool
+	pool        chan JSRuntime
 	maxSize     int
 	created     int
 	closed      bool
 	mu          sync.Mutex
+
+	// Track all created runtimes for proper cleanup
+	allRuntimes []JSRuntime
+	runtimesMu  sync.Mutex
 }
 
 // PoolConfig configures the runtime pool
@@ -57,44 +61,65 @@ func NewPool(config PoolConfig) *Pool {
 	p := &Pool{
 		runtimeType: config.RuntimeType,
 		maxSize:     config.PoolSize,
-	}
-
-	p.pool = sync.Pool{
-		New: func() interface{} {
-			return p.createRuntime()
-		},
+		pool:        make(chan JSRuntime, config.PoolSize),
+		allRuntimes: make([]JSRuntime, 0, config.PoolSize),
 	}
 
 	// Pre-warm the pool
-	runtimes := make([]JSRuntime, config.PoolSize)
 	for i := 0; i < config.PoolSize; i++ {
-		runtimes[i] = p.Get()
-	}
-	for _, rt := range runtimes {
-		p.Put(rt)
+		rt := p.createRuntime()
+		p.pool <- rt
 	}
 
 	return p
 }
 
-// createRuntime creates a new runtime (uses the only available runtime in this build)
+// createRuntime creates a new runtime and tracks it
 func (p *Pool) createRuntime() JSRuntime {
 	p.mu.Lock()
 	p.created++
 	p.mu.Unlock()
 
-	return newRuntime()
+	rt := newRuntime()
+
+	// Track for cleanup
+	p.runtimesMu.Lock()
+	p.allRuntimes = append(p.allRuntimes, rt)
+	p.runtimesMu.Unlock()
+
+	return rt
 }
 
 // Get retrieves a runtime from the pool
 func (p *Pool) Get() JSRuntime {
-	return p.pool.Get().(JSRuntime)
+	select {
+	case rt := <-p.pool:
+		return rt
+	default:
+		// Pool is empty, create a new one
+		return p.createRuntime()
+	}
 }
 
 // Put returns a runtime to the pool
 func (p *Pool) Put(rt JSRuntime) {
+	p.mu.Lock()
+	closed := p.closed
+	p.mu.Unlock()
+
+	if closed {
+		rt.Destroy()
+		return
+	}
+
 	rt.Reset()
-	p.pool.Put(rt)
+	select {
+	case p.pool <- rt:
+		// Successfully returned to pool
+	default:
+		// Pool is full, destroy the runtime
+		rt.Destroy()
+	}
 }
 
 // Execute is a convenience method that gets a runtime, executes code, and returns it
@@ -112,15 +137,32 @@ func (p *Pool) Stats() map[string]interface{} {
 		"runtime_type":  p.runtimeType,
 		"total_created": p.created,
 		"max_pool_size": p.maxSize,
+		"pool_size":     len(p.pool),
 		"closed":        p.closed,
 	}
 }
 
-// Close marks the pool as closed and prevents further use.
-// Note: sync.Pool doesn't support iteration, so we can't destroy all runtimes.
-// They will be garbage collected when no longer referenced.
+// Close marks the pool as closed and destroys all runtimes
 func (p *Pool) Close() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	if p.closed {
+		p.mu.Unlock()
+		return
+	}
 	p.closed = true
+	p.mu.Unlock()
+
+	// Drain the pool
+	close(p.pool)
+	for rt := range p.pool {
+		rt.Destroy()
+	}
+
+	// Destroy any remaining tracked runtimes
+	p.runtimesMu.Lock()
+	for _, rt := range p.allRuntimes {
+		rt.Destroy()
+	}
+	p.allRuntimes = nil
+	p.runtimesMu.Unlock()
 }

@@ -36,7 +36,9 @@ func (rt *renderTask) Start() (string, string, string, error) {
 	rt.serverRenderResult = make(chan serverRenderResult)
 	rt.clientRenderResult = make(chan clientRenderResult)
 	// Assigns the parent file to the routeID so that the cache can be invalidated when the parent file changes
-	rt.engine.CacheManager.SetParentFile(rt.routeID, rt.filePath)
+	if err := rt.engine.Cache.SetParentFile(rt.routeID, rt.filePath); err != nil {
+		rt.logger.Error("Failed to set parent file", "error", err)
+	}
 
 	// Render for server and client concurrently
 	go rt.doRender("server")
@@ -55,13 +57,20 @@ func (rt *renderTask) Start() (string, string, string, error) {
 	}
 
 	// Set the parent file dependencies so that the cache can be invalidated a dependency changes
-	go rt.engine.CacheManager.SetParentFileDependencies(rt.filePath, crResult.dependencies)
+	go func() {
+		if err := rt.engine.Cache.SetParentFileDependencies(rt.filePath, crResult.dependencies); err != nil {
+			rt.logger.Error("Failed to set parent file dependencies", "error", err)
+		}
+	}()
 	return srResult.html, srResult.css, crResult.js, nil
 }
 
 func (rt *renderTask) doRender(buildType string) {
 	// Check if the build is in the cache
-	build, buildFound := rt.getBuildFromCache(buildType)
+	build, buildFound, err := rt.getBuildFromCache(buildType)
+	if err != nil {
+		rt.logger.Error("Failed to get build from cache", "error", err, "buildType", buildType)
+	}
 	if !buildFound {
 		// Build the file if it's not in the cache
 		newBuild, err := rt.buildFile(buildType)
@@ -84,11 +93,11 @@ func (rt *renderTask) doRender(buildType string) {
 }
 
 // getBuild returns the build from the cache if it exists
-func (rt *renderTask) getBuildFromCache(buildType string) (reactbuilder.BuildResult, bool) {
+func (rt *renderTask) getBuildFromCache(buildType string) (reactbuilder.BuildResult, bool, error) {
 	if buildType == "server" {
-		return rt.engine.CacheManager.GetServerBuild(rt.filePath)
+		return rt.engine.Cache.GetServerBuild(rt.filePath)
 	} else {
-		return rt.engine.CacheManager.GetClientBuild(rt.filePath)
+		return rt.engine.Cache.GetClientBuild(rt.filePath)
 	}
 }
 
@@ -132,10 +141,14 @@ func (rt *renderTask) handleBuildError(err error, buildType string) {
 
 // updateBuildCache updates the cache with the new build
 func (rt *renderTask) updateBuildCache(build reactbuilder.BuildResult, buildType string) {
+	var err error
 	if buildType == "server" {
-		rt.engine.CacheManager.SetServerBuild(rt.filePath, build)
+		err = rt.engine.Cache.SetServerBuild(rt.filePath, build)
 	} else {
-		rt.engine.CacheManager.SetClientBuild(rt.filePath, build)
+		err = rt.engine.Cache.SetClientBuild(rt.filePath, build)
+	}
+	if err != nil {
+		rt.logger.Error("Failed to update build cache", "error", err, "buildType", buildType)
 	}
 }
 

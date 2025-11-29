@@ -98,15 +98,24 @@ func (hr *HotReload) startWatcher() {
 				hr.logger.Info("File changed, reloading", "file", filePath)
 				// Store the routes that need to be reloaded
 				var routeIDS []string
+				var cacheErr error
 				switch {
 				case filePath == hr.engine.Config.LayoutFilePath: // If the layout file has been updated, reload all routes
-					routeIDS = hr.engine.CacheManager.GetAllRouteIDS()
+					routeIDS, cacheErr = hr.engine.Cache.GetAllRouteIDS()
+					if cacheErr != nil {
+						hr.logger.Error("Failed to get all route IDs", "error", cacheErr)
+						continue
+					}
 				case hr.layoutCSSFileUpdated(filePath): // If the global css file has been updated, rebuild it and reload all routes
 					if err := hr.engine.BuildLayoutCSSFile(); err != nil {
 						hr.logger.Error("Failed to build global css file", "error", err)
 						continue
 					}
-					routeIDS = hr.engine.CacheManager.GetAllRouteIDS()
+					routeIDS, cacheErr = hr.engine.Cache.GetAllRouteIDS()
+					if cacheErr != nil {
+						hr.logger.Error("Failed to get all route IDs", "error", cacheErr)
+						continue
+					}
 				case hr.needsTailwindRecompile(filePath): // If tailwind is enabled and a React file has been updated, rebuild the global css file and reload all routes
 					if err := hr.engine.BuildLayoutCSSFile(); err != nil {
 						hr.logger.Error("Failed to build global css file", "error", err)
@@ -115,13 +124,24 @@ func (hr *HotReload) startWatcher() {
 					fallthrough
 				default:
 					// Get all route ids that use that file or have it as a dependency
-					routeIDS = hr.engine.CacheManager.GetRouteIDSWithFile(filePath)
+					routeIDS, cacheErr = hr.engine.Cache.GetRouteIDSWithFile(filePath)
+					if cacheErr != nil {
+						hr.logger.Error("Failed to get route IDs with file", "error", cacheErr)
+						continue
+					}
 				}
 				// Find any parent files that import the file that was modified and delete their cached build
-				parentFiles := hr.engine.CacheManager.GetParentFilesFromDependency(filePath)
+				parentFiles, cacheErr := hr.engine.Cache.GetParentFilesFromDependency(filePath)
+				if cacheErr != nil {
+					hr.logger.Error("Failed to get parent files from dependency", "error", cacheErr)
+				}
 				for _, parentFile := range parentFiles {
-					hr.engine.CacheManager.RemoveServerBuild(parentFile)
-					hr.engine.CacheManager.RemoveClientBuild(parentFile)
+					if err := hr.engine.Cache.RemoveServerBuild(parentFile); err != nil {
+						hr.logger.Error("Failed to remove server build", "error", err)
+					}
+					if err := hr.engine.Cache.RemoveClientBuild(parentFile); err != nil {
+						hr.logger.Error("Failed to remove client build", "error", err)
+					}
 				}
 				// Reload any routes that import the modified file
 				go hr.broadcastFileUpdateToClients(routeIDS)

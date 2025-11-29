@@ -14,37 +14,45 @@ type Engine struct {
 	Logger                  *slog.Logger
 	Config                  *Config
 	HotReload               *HotReload
-	CacheManager            *cache.Manager
+	Cache                   cache.Cache
 	RuntimePool             *jsruntime.Pool
 	CachedLayoutCSSFilePath string
 }
 
 // New creates a new gossr Engine instance
 func New(config Config) (*Engine, error) {
-	engine := &Engine{
-		Logger:       slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		Config:       &config,
-		CacheManager: cache.NewManager(),
-	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	if err := os.Setenv("APP_ENV", config.AppEnv); err != nil {
-		engine.Logger.Error("Failed to set APP_ENV environment variable", "error", err)
+		logger.Error("Failed to set APP_ENV environment variable", "error", err)
 	}
 
 	// Validate config first to set defaults
 	err := config.Validate()
 	if err != nil {
-		engine.Logger.Error("Failed to validate config", "error", err)
+		logger.Error("Failed to validate config", "error", err)
 		return nil, err
+	}
+
+	// Initialize cache based on config
+	cacheInstance, err := cache.NewCache(config.CacheConfig)
+	if err != nil {
+		logger.Error("Failed to initialize cache", "error", err)
+		return nil, err
+	}
+
+	engine := &Engine{
+		Logger: logger,
+		Config: &config,
+		Cache:  cacheInstance,
 	}
 
 	// Initialize the JS runtime pool after validation (defaults are now set)
 	engine.RuntimePool = jsruntime.NewPool(jsruntime.PoolConfig{
-		RuntimeType: config.JSRuntime,
-		PoolSize:    config.JSRuntimePoolSize,
+		PoolSize: config.JSRuntimePoolSize,
 	})
 	engine.Logger.Debug("Initialized JS runtime pool",
-		"runtime", string(config.JSRuntime),
+		"runtime", jsruntime.DefaultRuntimeType(),
 		"pool_size", config.JSRuntimePoolSize)
 	utils.CleanCacheDirectories()
 	// If using a layout css file, build it and cache it
@@ -76,8 +84,10 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	}
 
 	// Clear the cache
-	if engine.CacheManager != nil {
-		engine.CacheManager.Clear()
+	if engine.Cache != nil {
+		if err := engine.Cache.Clear(); err != nil {
+			engine.Logger.Error("Failed to clear cache", "error", err)
+		}
 		engine.Logger.Debug("Cache cleared")
 	}
 

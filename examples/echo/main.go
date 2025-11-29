@@ -25,6 +25,7 @@ func main() {
 		PropsStructsPath:    "./models/props.go",
 		LayoutFilePath:      "Layout.tsx",
 		HotReloadServerPort: 3013,
+		JSRuntimePoolSize:   50,
 	})
 	if err != nil {
 		log.Fatal("Failed to init go-react-ssr")

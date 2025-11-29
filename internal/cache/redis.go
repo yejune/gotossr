@@ -65,91 +65,97 @@ func NewRedisCache(config RedisConfig) (*RedisCache, error) {
 }
 
 // GetServerBuild retrieves a server build from Redis
-func (rc *RedisCache) GetServerBuild(filePath string) (reactbuilder.BuildResult, bool) {
+func (rc *RedisCache) GetServerBuild(filePath string) (reactbuilder.BuildResult, bool, error) {
 	ctx := context.Background()
 	key := rc.prefix + "server:" + filePath
 	data, err := rc.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return reactbuilder.BuildResult{}, false, nil
+	}
 	if err != nil {
-		return reactbuilder.BuildResult{}, false
+		return reactbuilder.BuildResult{}, false, err
 	}
 
 	var result reactbuilder.BuildResult
 	if err := json.Unmarshal(data, &result); err != nil {
-		return reactbuilder.BuildResult{}, false
+		return reactbuilder.BuildResult{}, false, err
 	}
 
-	return result, true
+	return result, true, nil
 }
 
 // SetServerBuild stores a server build in Redis
-func (rc *RedisCache) SetServerBuild(filePath string, build reactbuilder.BuildResult) {
+func (rc *RedisCache) SetServerBuild(filePath string, build reactbuilder.BuildResult) error {
 	ctx := context.Background()
 	key := rc.prefix + "server:" + filePath
 	data, err := json.Marshal(build)
 	if err != nil {
-		return
+		return err
 	}
 
-	rc.client.Set(ctx, key, data, rc.ttl)
+	return rc.client.Set(ctx, key, data, rc.ttl).Err()
 }
 
 // RemoveServerBuild removes a server build from Redis
-func (rc *RedisCache) RemoveServerBuild(filePath string) {
+func (rc *RedisCache) RemoveServerBuild(filePath string) error {
 	ctx := context.Background()
 	key := rc.prefix + "server:" + filePath
-	rc.client.Del(ctx, key)
+	return rc.client.Del(ctx, key).Err()
 }
 
 // GetClientBuild retrieves a client build from Redis
-func (rc *RedisCache) GetClientBuild(filePath string) (reactbuilder.BuildResult, bool) {
+func (rc *RedisCache) GetClientBuild(filePath string) (reactbuilder.BuildResult, bool, error) {
 	ctx := context.Background()
 	key := rc.prefix + "client:" + filePath
 	data, err := rc.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return reactbuilder.BuildResult{}, false, nil
+	}
 	if err != nil {
-		return reactbuilder.BuildResult{}, false
+		return reactbuilder.BuildResult{}, false, err
 	}
 
 	var result reactbuilder.BuildResult
 	if err := json.Unmarshal(data, &result); err != nil {
-		return reactbuilder.BuildResult{}, false
+		return reactbuilder.BuildResult{}, false, err
 	}
 
-	return result, true
+	return result, true, nil
 }
 
 // SetClientBuild stores a client build in Redis
-func (rc *RedisCache) SetClientBuild(filePath string, build reactbuilder.BuildResult) {
+func (rc *RedisCache) SetClientBuild(filePath string, build reactbuilder.BuildResult) error {
 	ctx := context.Background()
 	key := rc.prefix + "client:" + filePath
 	data, err := json.Marshal(build)
 	if err != nil {
-		return
+		return err
 	}
 
-	rc.client.Set(ctx, key, data, rc.ttl)
+	return rc.client.Set(ctx, key, data, rc.ttl).Err()
 }
 
 // RemoveClientBuild removes a client build from Redis
-func (rc *RedisCache) RemoveClientBuild(filePath string) {
+func (rc *RedisCache) RemoveClientBuild(filePath string) error {
 	ctx := context.Background()
 	key := rc.prefix + "client:" + filePath
-	rc.client.Del(ctx, key)
+	return rc.client.Del(ctx, key).Err()
 }
 
 // SetParentFile maps a routeID to a parent file path
-func (rc *RedisCache) SetParentFile(routeID, filePath string) {
+func (rc *RedisCache) SetParentFile(routeID, filePath string) error {
 	ctx := context.Background()
 	key := rc.prefix + "routes"
-	rc.client.HSet(ctx, key, routeID, filePath)
+	return rc.client.HSet(ctx, key, routeID, filePath).Err()
 }
 
 // GetRouteIDSForParentFile returns all route IDs for a given file path
-func (rc *RedisCache) GetRouteIDSForParentFile(filePath string) []string {
+func (rc *RedisCache) GetRouteIDSForParentFile(filePath string) ([]string, error) {
 	ctx := context.Background()
 	key := rc.prefix + "routes"
 	result, err := rc.client.HGetAll(ctx, key).Result()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	var routes []string
@@ -158,96 +164,112 @@ func (rc *RedisCache) GetRouteIDSForParentFile(filePath string) []string {
 			routes = append(routes, route)
 		}
 	}
-	return routes
+	return routes, nil
 }
 
 // GetAllRouteIDS returns all route IDs
-func (rc *RedisCache) GetAllRouteIDS() []string {
+func (rc *RedisCache) GetAllRouteIDS() ([]string, error) {
 	ctx := context.Background()
 	key := rc.prefix + "routes"
 	result, err := rc.client.HKeys(ctx, key).Result()
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return result
+	return result, nil
 }
 
 // GetRouteIDSWithFile returns route IDs associated with a file
-func (rc *RedisCache) GetRouteIDSWithFile(filePath string) []string {
-	reactFilesWithDependency := rc.GetParentFilesFromDependency(filePath)
+func (rc *RedisCache) GetRouteIDSWithFile(filePath string) ([]string, error) {
+	reactFilesWithDependency, err := rc.GetParentFilesFromDependency(filePath)
+	if err != nil {
+		return nil, err
+	}
 	if len(reactFilesWithDependency) == 0 {
 		reactFilesWithDependency = []string{filePath}
 	}
 	var routeIDS []string
 	for _, reactFile := range reactFilesWithDependency {
-		routeIDS = append(routeIDS, rc.GetRouteIDSForParentFile(reactFile)...)
-	}
-	return routeIDS
-}
-
-// SetParentFileDependencies sets dependencies for a parent file
-func (rc *RedisCache) SetParentFileDependencies(filePath string, dependencies []string) {
-	ctx := context.Background()
-	key := rc.prefix + "deps:" + filePath
-	data, _ := json.Marshal(dependencies)
-	rc.client.Set(ctx, key, data, rc.ttl)
-}
-
-// GetParentFilesFromDependency returns parent files that depend on a given file
-func (rc *RedisCache) GetParentFilesFromDependency(dependencyPath string) []string {
-	ctx := context.Background()
-	pattern := rc.prefix + "deps:*"
-	var parentFilePaths []string
-
-	var cursor uint64
-	for {
-		keys, nextCursor, err := rc.client.Scan(ctx, cursor, pattern, 100).Result()
+		routes, err := rc.GetRouteIDSForParentFile(reactFile)
 		if err != nil {
-			break
+			return nil, err
 		}
+		routeIDS = append(routeIDS, routes...)
+	}
+	return routeIDS, nil
+}
 
-		for _, key := range keys {
-			data, err := rc.client.Get(ctx, key).Bytes()
-			if err != nil {
-				continue
-			}
+// SetParentFileDependencies sets dependencies for a parent file with reverse index
+func (rc *RedisCache) SetParentFileDependencies(filePath string, dependencies []string) error {
+	ctx := context.Background()
 
-			var deps []string
-			if err := json.Unmarshal(data, &deps); err != nil {
-				continue
-			}
+	// Get old dependencies to remove from reverse index
+	oldDepsKey := rc.prefix + "deps:" + filePath
+	oldDepsData, err := rc.client.Get(ctx, oldDepsKey).Bytes()
+	var oldDeps []string
+	if err == nil {
+		json.Unmarshal(oldDepsData, &oldDeps)
+	}
 
-			for _, dep := range deps {
-				if dep == dependencyPath {
-					// Extract parent file path from key
-					parentPath := key[len(rc.prefix+"deps:"):]
-					parentFilePaths = append(parentFilePaths, parentPath)
-					break
-				}
-			}
+	// Remove from reverse index for old dependencies
+	reverseKey := rc.prefix + "revdeps"
+	for _, dep := range oldDeps {
+		rc.client.SRem(ctx, reverseKey+":"+dep, filePath)
+	}
+
+	// Set forward index
+	data, err := json.Marshal(dependencies)
+	if err != nil {
+		return err
+	}
+	if err := rc.client.Set(ctx, oldDepsKey, data, rc.ttl).Err(); err != nil {
+		return err
+	}
+
+	// Add to reverse index for new dependencies
+	for _, dep := range dependencies {
+		if err := rc.client.SAdd(ctx, reverseKey+":"+dep, filePath).Err(); err != nil {
+			return err
 		}
-
-		cursor = nextCursor
-		if cursor == 0 {
-			break
+		// Set TTL on reverse index key if TTL is configured
+		if rc.ttl > 0 {
+			rc.client.Expire(ctx, reverseKey+":"+dep, rc.ttl)
 		}
 	}
-	return parentFilePaths
+
+	return nil
+}
+
+// GetParentFilesFromDependency returns parent files that depend on a given file using reverse index
+func (rc *RedisCache) GetParentFilesFromDependency(dependencyPath string) ([]string, error) {
+	ctx := context.Background()
+	reverseKey := rc.prefix + "revdeps:" + dependencyPath
+
+	result, err := rc.client.SMembers(ctx, reverseKey).Result()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // Clear removes all gossr keys from cache
-func (rc *RedisCache) Clear() {
+func (rc *RedisCache) Clear() error {
 	ctx := context.Background()
 	pattern := rc.prefix + "*"
 	var cursor uint64
 	for {
 		keys, nextCursor, err := rc.client.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			break
+			return err
 		}
 
 		if len(keys) > 0 {
-			rc.client.Del(ctx, keys...)
+			if err := rc.client.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
 		}
 
 		cursor = nextCursor
@@ -255,16 +277,17 @@ func (rc *RedisCache) Clear() {
 			break
 		}
 	}
+	return nil
 }
 
 // Invalidate removes a specific key from cache
-func (rc *RedisCache) Invalidate(filePath string) {
+func (rc *RedisCache) Invalidate(filePath string) error {
 	ctx := context.Background()
 	keys := []string{
 		rc.prefix + "server:" + filePath,
 		rc.prefix + "client:" + filePath,
 	}
-	rc.client.Del(ctx, keys...)
+	return rc.client.Del(ctx, keys...).Err()
 }
 
 // Close closes the Redis connection
