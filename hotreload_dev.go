@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
@@ -19,6 +20,7 @@ type HotReload struct {
 	engine           *Engine
 	logger           *slog.Logger
 	connectedClients map[string][]*websocket.Conn
+	mu               sync.Mutex
 }
 
 // newHotReload creates a new HotReload instance
@@ -62,7 +64,9 @@ func (hr *HotReload) startServer() {
 			return
 		}
 		// Add client to connectedClients
+		hr.mu.Lock()
 		hr.connectedClients[string(routeID)] = append(hr.connectedClients[string(routeID)], ws)
+		hr.mu.Unlock()
 	})
 	err := http.ListenAndServe(fmt.Sprintf(":%d", hr.engine.Config.HotReloadServerPort), nil)
 	if err != nil {
@@ -174,16 +178,20 @@ func (hr *HotReload) needsTailwindRecompile(filePath string) bool {
 
 // broadcastFileUpdateToClients sends a message to all connected clients to reload the page
 func (hr *HotReload) broadcastFileUpdateToClients(routeIDS []string) {
+	hr.mu.Lock()
+	defer hr.mu.Unlock()
+
 	// Iterate over each route ID
 	for _, routeID := range routeIDS {
 		// Find all clients listening for that route ID
-		for i, ws := range hr.connectedClients[routeID] {
+		var validClients []*websocket.Conn
+		for _, ws := range hr.connectedClients[routeID] {
 			// Send reload message to client
 			err := ws.WriteMessage(1, []byte("reload"))
-			if err != nil {
-				// remove client if browser is closed or page changed
-				hr.connectedClients[routeID] = append(hr.connectedClients[routeID][:i], hr.connectedClients[routeID][i+1:]...)
+			if err == nil {
+				validClients = append(validClients, ws)
 			}
 		}
+		hr.connectedClients[routeID] = validClients
 	}
 }
