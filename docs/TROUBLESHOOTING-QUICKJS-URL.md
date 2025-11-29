@@ -1,129 +1,187 @@
 # QuickJS + React Router SSR 트러블슈팅
 
-## 증상
+> 2025-11-30 | gotossr 라이브러리 SSR 버그 해결 기록
 
-```tsx
-// 작동함
-renderToString(<App {...props} />);
+---
 
-// 빈 문자열 반환
-renderToString(<StaticRouter location={url}><App /></StaticRouter>);
+## TL;DR
+
+**문제:** `StaticRouter`로 감싸면 SSR 결과가 빈 문자열
+**원인:** QuickJS에 `URL` Web API 없음 → React Router 내부에서 터짐
+**해결:** URL polyfill 추가
+
+---
+
+## 1. 요청 사항
+
+```
+renderToString(<App {...props} />);  // 작동
+renderToString(<StaticRouter><App /></StaticRouter>);  // 빈 문자열, 에러 없음
 ```
 
-- esbuild 번들링 성공
-- QuickJS 실행 시 에러 없음
-- 결과가 빈 문자열 `""`
+**이게 제일 미친 케이스:** 에러가 없다. 그냥 빈 문자열.
 
-## 원인
+---
 
-**QuickJS에 `URL` Web API가 없음**
+## 2. 핵심 발견
 
-React Router v6의 `react-router-dom/server`에 있는 `encodeLocation` 함수가 `new URL()` constructor를 사용:
+### React가 에러를 삼킨다
+
+QuickJS 환경에서 `console.error`가 void 처리됨
+→ React 내부 에러가 아무데도 안 찍힘
+→ 그냥 빈 문자열만 반환
+
+### 해결: console.error 캡처
 
 ```javascript
-// react-router-dom/server.js
+globalThis.__ssr_errors = [];
+var console = {
+  log: function(){},
+  error: function(){
+    globalThis.__ssr_errors.push(arguments);
+  }
+};
+```
+
+---
+
+## 3. 진짜 원인
+
+React Router의 `encodeLocation` 함수:
+
+```javascript
 function encodeLocation(to) {
-  let href = typeof to === "string" ? to : createPath(to);
-  // 여기서 URL constructor 사용 - QuickJS에서 실패!
-  let encoded = new URL(href, "http://localhost");
-  return {
-    pathname: encoded.pathname,
-    search: encoded.search,
-    hash: encoded.hash
-  };
+  let encoded = new URL(href, "http://localhost");  // ← QuickJS에서 터짐!
 }
 ```
 
-이 함수는 `useRoutes`, `Routes`, `Route` 컴포넌트에서 route matching 시 호출됨.
+**QuickJS에는 URL API가 없다.**
 
-## 진단 과정
+브라우저/Node.js에서는 당연히 있는 API가 QuickJS에는 없음.
 
-1. 단순 컴포넌트 테스트 → 작동
-2. `useLocation()` 테스트 → 작동
-3. `useRoutes()` 테스트 → 실패
-4. try-catch + console.error 캡처 추가
-5. 에러 메시지: `at encodeLocation (<input>:52766:73)`
-6. 원인 확인: `URL is not defined`
+---
 
-## 해결 방법
+## 4. 수정 내용
 
-`internal/reactbuilder/build.go`에 URL polyfill 추가:
+### build.go - URL polyfill
 
 ```go
-var urlPolyfill = `if(typeof URL==="undefined"){function URL(u,b){if(b&&u.indexOf("://")===-1){u=b.replace(/\/$/,"")+"/"+u.replace(/^\//,"")}var m=u.match(/^(([^:/?#]+):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/);this.href=u;this.protocol=(m[2]||"")+ ":";this.host=m[4]||"";this.hostname=this.host.split(":")[0];this.port=this.host.split(":")[1]||"";this.pathname=m[5]||"/";this.search=m[6]||"";this.hash=m[8]||"";this.origin=this.protocol+"//"+this.host}URL.prototype.toString=function(){return this.href}}`
-```
-
-Banner에 추가:
-
-```go
-Banner: map[string]string{
-    "js": globalThisPolyfill + urlPolyfill + textEncoderPolyfill + processPolyfill + consolePolyfill,
-},
-```
-
-## 디버깅 팁
-
-### 1. console.error 캡처
-
-```go
-var consolePolyfill = `globalThis.__ssr_errors=[];var console = {
-  log: function(){},
-  warn: function(){},
-  error: function(){
-    var a=Array.prototype.slice.call(arguments);
-    globalThis.__ssr_errors.push(a.map(function(x){
-      return x&&x.stack?x.stack:String(x)
-    }).join(' '));
+var urlPolyfill = `if(typeof URL==="undefined"){
+  function URL(u,b){
+    // RFC 3986 regex로 URL 파싱
+    var m=u.match(/^(([^:/?#]+):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/);
+    this.href=u;
+    this.protocol=(m[2]||"")+":";
+    this.host=m[4]||"";
+    this.pathname=m[5]||"/";
+    this.search=m[6]||"";
+    this.hash=m[8]||"";
   }
-};`
+}`
 ```
 
-### 2. Footer에 에러 출력
+### build.go - 에러 캡처 & 출력
 
 ```go
+// Footer에서 에러를 HTML 주석으로 출력
 Footer: map[string]string{
-    "js": "globalThis.__ssr_result+(globalThis.__ssr_errors&&globalThis.__ssr_errors.length?'<!-- SSR_ERRORS: '+globalThis.__ssr_errors.join(' | ')+' -->':'')",
+    "js": `globalThis.__ssr_result +
+           (globalThis.__ssr_errors.length ?
+            '<!-- SSR_ERRORS: ' + __ssr_errors.join(' | ') + ' -->' :
+            '')`,
 },
 ```
 
-### 3. render 함수에 try-catch
+### contents.go - try-catch
 
 ```go
 var serverSPARouterRenderFunction = `try {
-  globalThis.__ssr_result = renderToString(<StaticRouter location={props.__requestPath}><App /></StaticRouter>);
+  globalThis.__ssr_result = renderToString(...);
 } catch(e) {
-  globalThis.__ssr_errors.push('RENDER_ERROR: ' + (e.stack || e.message || String(e)));
+  globalThis.__ssr_errors.push('RENDER_ERROR: ' + e.stack);
   globalThis.__ssr_result = '';
 }`
 ```
 
-### 4. minification 임시 비활성화
+### engine.go - CSS 캐싱 (부가 버그)
 
-에러 위치를 정확히 파악하려면:
+SPA 모드에서 CSS가 빈 문자열로 반환되던 버그도 같이 수정:
 
 ```go
-MinifyWhitespace:  false,
-MinifyIdentifiers: false,
-MinifySyntax:      false,
+type Engine struct {
+    CachedServerSPACSS string  // 추가
+}
+
+// buildServerSPAApp()에서 저장
+engine.CachedServerSPACSS = result.CSS
 ```
 
-## QuickJS에 없는 다른 Web API들
+### rendertask.go - 캐시된 CSS 사용
 
-향후 비슷한 문제가 발생할 수 있는 API들:
+```go
+// 이전: css: ""
+// 수정: css: rt.engine.CachedServerSPACSS
+```
 
-- `URL` ← 이 문서에서 해결됨
-- `URLSearchParams`
-- `fetch`
-- `AbortController`
-- `Blob`
-- `FormData`
-- `Headers`
-- `Request`/`Response`
+---
 
-필요시 polyfill 추가 필요.
+## 5. 디버깅 방법
 
-## 참고
+SSR이 빈 문자열 나올 때:
 
-- QuickJS: https://bellard.org/quickjs/
-- React Router v6 SSR: https://reactrouter.com/en/main/guides/ssr
-- URL Standard: https://url.spec.whatwg.org/
+```bash
+# 1. SSR_ERRORS 확인
+curl http://localhost:8080/ | grep SSR_ERRORS
+
+# 2. minification 끄고 재빌드
+# build.go에서:
+MinifyWhitespace:  false
+MinifyIdentifiers: false
+MinifySyntax:      false
+
+# 3. 에러 위치 확인
+<!-- SSR_ERRORS: at encodeLocation (<input>:52766:73) -->
+```
+
+---
+
+## 6. QuickJS에 없는 API들
+
+| API | 상태 |
+|-----|------|
+| `URL` | polyfill 추가됨 |
+| `URLSearchParams` | 필요시 추가 |
+| `TextEncoder/Decoder` | polyfill 있음 |
+| `fetch` | 없음 (SSR에서 안 씀) |
+| `AbortController` | 없음 |
+| `Blob`, `FormData` | 없음 |
+
+---
+
+## 7. 수정된 파일 목록
+
+```
+internal/reactbuilder/build.go     # URL polyfill, console.error 캡처
+internal/reactbuilder/contents.go  # try-catch 에러 핸들링
+engine.go                          # CachedServerSPACSS 필드 추가
+rendertask.go                      # SPA에서 CSS 반환
+```
+
+---
+
+## 8. 교훈
+
+1. **에러가 안 나온다 ≠ 에러가 없다**
+2. **QuickJS는 브라우저 아님** - Web API 없음
+3. **console.error 캡처는 SSR 디버깅 필수**
+4. **minification 끄면 에러 위치 보임**
+5. **컴포넌트 하나씩 테스트로 문제 격리**
+
+---
+
+## 관련 커밋
+
+```
+ba01063 - Add URL polyfill and SPA CSS caching for QuickJS SSR
+30e176c - Rename module to github.com/yejune/gotossr
+```
