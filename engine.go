@@ -21,6 +21,11 @@ type Engine struct {
 	CachedClientSPAJS       string // Cached client SPA bundle JS
 }
 
+// IsProduction returns true if running in production mode
+func (engine *Engine) IsProduction() bool {
+	return engine.Config.AppEnv == "production"
+}
+
 // New creates a new gossr Engine instance
 func New(config Config) (*Engine, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -120,7 +125,7 @@ func (engine *Engine) buildClientSPAApp() error {
 		return err
 	}
 
-	result, err := reactbuilder.BuildClient(buildContents, engine.Config.FrontendDir, engine.Config.AssetRoute)
+	result, err := reactbuilder.BuildClient(buildContents, engine.Config.FrontendDir, engine.Config.AssetRoute, engine.IsProduction())
 	if err != nil {
 		return err
 	}

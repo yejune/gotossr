@@ -57,7 +57,7 @@ func BuildServer(buildContents, frontendDir, assetRoute string) (BuildResult, er
 	return build(opts, false)
 }
 
-func BuildClient(buildContents, frontendDir, assetRoute string) (BuildResult, error) {
+func BuildClient(buildContents, frontendDir, assetRoute string, minify bool) (BuildResult, error) {
 	opts := esbuildApi.BuildOptions{
 		Stdin: &esbuildApi.StdinOptions{
 			Contents:   buildContents,
@@ -69,9 +69,9 @@ func BuildClient(buildContents, frontendDir, assetRoute string) (BuildResult, er
 		Outdir:            "/",
 		Metafile:          true,
 		AssetNames:        fmt.Sprintf("%s/[name]", strings.TrimPrefix(assetRoute, "/")),
-		MinifyWhitespace:  true,
-		MinifyIdentifiers: true,
-		MinifySyntax:      true,
+		MinifyWhitespace:  minify,
+		MinifyIdentifiers: minify,
+		MinifySyntax:      minify,
 		Loader:            loaders,
 	}
 	return build(opts, true)

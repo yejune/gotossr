@@ -116,7 +116,7 @@ func (rt *renderTask) buildFile(buildType string) (reactbuilder.BuildResult, err
 	if buildType == "server" {
 		return reactbuilder.BuildServer(buildContents, rt.engine.Config.FrontendDir, rt.engine.Config.AssetRoute)
 	} else {
-		return reactbuilder.BuildClient(buildContents, rt.engine.Config.FrontendDir, rt.engine.Config.AssetRoute)
+		return reactbuilder.BuildClient(buildContents, rt.engine.Config.FrontendDir, rt.engine.Config.AssetRoute, rt.engine.IsProduction())
 	}
 }
 
