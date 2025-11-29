@@ -3,7 +3,6 @@ package reactbuilder
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	esbuildApi "github.com/evanw/esbuild/pkg/api"
@@ -70,9 +69,9 @@ func BuildClient(buildContents, frontendDir, assetRoute string) (BuildResult, er
 		Outdir:            "/",
 		Metafile:          true,
 		AssetNames:        fmt.Sprintf("%s/[name]", strings.TrimPrefix(assetRoute, "/")),
-		MinifyWhitespace:  os.Getenv("APP_ENV") == "production",
-		MinifyIdentifiers: os.Getenv("APP_ENV") == "production",
-		MinifySyntax:      os.Getenv("APP_ENV") == "production",
+		MinifyWhitespace:  true,
+		MinifyIdentifiers: true,
+		MinifySyntax:      true,
 		Loader:            loaders,
 	}
 	return build(opts, true)
