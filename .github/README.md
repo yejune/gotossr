@@ -4,6 +4,70 @@ React SSR made simple with Go. **"go to SSR"** — just go.
 
 ---
 
+# 💭 Why gotossr?
+
+## The Problem
+
+You're a Go developer. You want to use React for your frontend. But React SSR requires Node.js.
+
+**Traditional approach:**
+```
+Go Server (API) ──── Node.js Server (SSR) ──── Browser
+   :8080                 :3000
+```
+
+Now you're managing two servers, two runtimes, two deployment pipelines. Your simple Go app became a distributed system.
+
+## The Solution
+
+gotossr embeds a JavaScript runtime (V8 or QuickJS) directly into your Go binary.
+
+**gotossr approach:**
+```
+Go Server (API + SSR) ──── Browser
+        :8080
+```
+
+One server. One binary. One deployment.
+
+## Philosophy
+
+1. **Server-first**: Like htmx, we believe the server should render HTML. Unlike htmx, we use React's ecosystem.
+
+2. **No Node.js tax**: React is great. Node.js runtime on your server is not required for SSR.
+
+3. **Plugin, not framework**: Drop into any existing Go web server. Keep your architecture.
+
+4. **Honest trade-offs**: We're not Next.js. We don't have ISR, Streaming SSR, or Image Optimization. We have one thing: Go + React SSR without Node.js.
+
+## When to Use gotossr
+
+✅ **Good fit:**
+- Go backend that needs a React frontend
+- Internal tools, admin dashboards
+- Teams that know Go but want React UI
+- "I just want React SSR without the Node.js overhead"
+
+❌ **Not a good fit:**
+- High-traffic consumer apps (use Next.js)
+- Complex client-side React apps with heavy interactivity
+- Teams already comfortable with Node.js infrastructure
+
+## Limitations (Honest Assessment)
+
+| What we don't have | Why |
+|--------------------|-----|
+| Static Site Generation (SSG) | We're SSR-only |
+| Incremental Static Regeneration (ISR) | No build-time generation |
+| Streaming SSR | V8/QuickJS don't support React 18 streaming |
+| Image Optimization | Use a CDN |
+| Edge Runtime | We run on your server |
+| App Router / Server Components | React 18 features require Node.js internals |
+
+**If you need these features, use Next.js.** We provide a [migration guide](#-migration-guide-gotossr--nextjs) when you outgrow us.
+
+---
+
 <p>
     <a href="https://goreportcard.com/report/github.com/yejune/gotossr"><img src="https://goreportcard.com/badge/github.com/yejune/gotossr" alt="Go Report"></a>
     <a href="https://pkg.go.dev/github.com/yejune/gotossr?tab=doc"><img src="http://img.shields.io/badge/GoDoc-Reference-blue.svg" alt="GoDoc"></a>
