@@ -66,6 +66,12 @@ func (rt *renderTask) Start() (string, string, string, error) {
 }
 
 func (rt *renderTask) doRender(buildType string) {
+	// For client builds with ClientAppPath, use cached SPA bundle
+	if buildType == "client" && rt.engine.CachedClientSPAJS != "" {
+		rt.clientRenderResult <- clientRenderResult{js: rt.engine.CachedClientSPAJS, dependencies: nil}
+		return
+	}
+
 	// Check if the build is in the cache
 	build, buildFound, err := rt.getBuildFromCache(buildType)
 	if err != nil {

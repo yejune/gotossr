@@ -22,6 +22,7 @@ type Config struct {
 	HotReloadServerPort int               // The port to run the hot reload server on, 3001 by default
 	JSRuntimePoolSize   int               // The number of JS runtimes to keep in the pool, 10 by default
 	CacheConfig         cache.CacheConfig // Cache configuration (local or redis)
+	ClientAppPath       string            // Path to client SPA app (e.g., "App.tsx") for client-side routing after hydration
 }
 
 // Validate validates the config
@@ -40,6 +41,9 @@ func (c *Config) Validate() error {
 	}
 	if c.TailwindConfigPath != "" && c.LayoutCSSFilePath == "" {
 		return fmt.Errorf("layout css file path must be provided when using tailwind")
+	}
+	if c.ClientAppPath != "" && !checkPathExists(path.Join(c.FrontendDir, c.ClientAppPath)) {
+		return fmt.Errorf("client app path at %s/%s does not exist", c.FrontendDir, c.ClientAppPath)
 	}
 	if c.HotReloadServerPort == 0 {
 		c.HotReloadServerPort = 3001
@@ -64,6 +68,9 @@ func (c *Config) setFilePaths() {
 	}
 	if c.TailwindConfigPath != "" {
 		c.TailwindConfigPath = utils.GetFullFilePath(c.TailwindConfigPath)
+	}
+	if c.ClientAppPath != "" {
+		c.ClientAppPath = path.Join(c.FrontendDir, c.ClientAppPath)
 	}
 }
 

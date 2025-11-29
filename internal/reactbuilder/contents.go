@@ -15,6 +15,7 @@ var serverRenderFunction = `renderToString(<App {...props} />);`
 var serverRenderFunctionWithLayout = `renderToString(<Layout><App {...props} /></Layout>);`
 var clientRenderFunction = `hydrateRoot(document.getElementById("root"), <App {...props} />);`
 var clientRenderFunctionWithLayout = `hydrateRoot(document.getElementById("root"), <Layout><App {...props} /></Layout>);`
+var clientSPARenderFunction = `hydrateRoot(document.getElementById("root"), <App />);`
 
 func buildWithTemplate(buildTemplate string, params map[string]interface{}) (string, error) {
 	templ, err := template.New("buildTemplate").Parse(buildTemplate)
@@ -52,6 +53,17 @@ func GenerateClientBuildContents(imports []string, filePath string, useLayout bo
 	}
 	if useLayout {
 		params["RenderFunction"] = clientRenderFunctionWithLayout
+	}
+	return buildWithTemplate(baseTemplate, params)
+}
+
+// GenerateClientSPABuildContents generates client SPA app that includes React Router for client-side navigation
+func GenerateClientSPABuildContents(imports []string, appPath string) (string, error) {
+	imports = append(imports, `import { hydrateRoot } from "react-dom/client";`)
+	params := map[string]interface{}{
+		"Imports":        imports,
+		"FilePath":       appPath,
+		"RenderFunction": clientSPARenderFunction,
 	}
 	return buildWithTemplate(baseTemplate, params)
 }

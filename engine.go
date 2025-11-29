@@ -7,6 +7,7 @@ import (
 
 	"github.com/yejune/go-react-ssr/internal/cache"
 	"github.com/yejune/go-react-ssr/internal/jsruntime"
+	"github.com/yejune/go-react-ssr/internal/reactbuilder"
 	"github.com/yejune/go-react-ssr/internal/utils"
 )
 
@@ -17,6 +18,7 @@ type Engine struct {
 	Cache                   cache.Cache
 	RuntimePool             *jsruntime.Pool
 	CachedLayoutCSSFilePath string
+	CachedClientSPAJS       string // Cached client SPA bundle JS
 }
 
 // New creates a new gossr Engine instance
@@ -63,6 +65,14 @@ func New(config Config) (*Engine, error) {
 		}
 	}
 
+	// If using client SPA app, build it and cache it
+	if config.ClientAppPath != "" {
+		if err = engine.buildClientSPAApp(); err != nil {
+			engine.Logger.Error("Failed to build client SPA app", "error", err)
+			return nil, err
+		}
+	}
+
 	// Initialize dev tools (hot reload, type converter) - no-op in prod builds
 	if err := engine.initDevTools(); err != nil {
 		return nil, err
@@ -95,5 +105,27 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	engine.stopHotReload()
 
 	engine.Logger.Info("go-react-ssr engine shutdown complete")
+	return nil
+}
+
+// buildClientSPAApp builds the client SPA app bundle
+func (engine *Engine) buildClientSPAApp() error {
+	imports := []string{}
+	if engine.CachedLayoutCSSFilePath != "" {
+		imports = append(imports, `import "`+engine.CachedLayoutCSSFilePath+`";`)
+	}
+
+	buildContents, err := reactbuilder.GenerateClientSPABuildContents(imports, engine.Config.ClientAppPath)
+	if err != nil {
+		return err
+	}
+
+	result, err := reactbuilder.BuildClient(buildContents, engine.Config.FrontendDir, engine.Config.AssetRoute)
+	if err != nil {
+		return err
+	}
+
+	engine.CachedClientSPAJS = result.JS
+	engine.Logger.Debug("Built client SPA app", "path", engine.Config.ClientAppPath)
 	return nil
 }
