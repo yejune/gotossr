@@ -1,4 +1,4 @@
-//go:build !use_v8
+//go:build use_quickjs
 
 package jsruntime
 
