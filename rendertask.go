@@ -75,11 +75,12 @@ func (rt *renderTask) doRender(buildType string) {
 		// Use cached bundle with props injection for optimal performance
 		// Merge user props with __requestPath for SPA routing
 		propsJSON := rt.props
-		if propsJSON == "null" || propsJSON == "" {
+		if propsJSON == "null" || propsJSON == "" || propsJSON == "{}" {
 			propsJSON = fmt.Sprintf(`{ "__requestPath": "%s" }`, rt.config.RequestPath)
 		} else {
-			// Inject __requestPath into existing props
-			propsJSON = fmt.Sprintf(`Object.assign(%s, { "__requestPath": "%s" })`, propsJSON, rt.config.RequestPath)
+			// Inject __requestPath into existing props JSON object
+			// Remove trailing } and append __requestPath
+			propsJSON = propsJSON[:len(propsJSON)-1] + fmt.Sprintf(`, "__requestPath": "%s" }`, rt.config.RequestPath)
 		}
 		renderedHTML, err := rt.renderReactToHTMLWithProps(rt.engine.CachedServerSPAJS, propsJSON)
 		if err != nil {
