@@ -51,28 +51,13 @@ func (v *V8Runtime) Execute(code string) (string, error) {
 	return val.String(), nil
 }
 
-// Preload runs JavaScript code without returning a result
-// Used to load heavy bundles once per runtime
-func (v *V8Runtime) Preload(code string) error {
-	_, err := v.context.RunScript(code, "preload.js")
-	if err != nil {
-		if jsErr, ok := err.(*v8.JSError); ok {
-			return fmt.Errorf("%s\n%s", jsErr.Message, jsErr.StackTrace)
-		}
-		return err
-	}
-	return nil
-}
-
 // Reset prepares the runtime for reuse
-// Instead of recreating context (expensive), we clear only per-request state
-// Note: __ssrRender is the preloaded render function - DO NOT delete it
+// V8 contexts can accumulate state, so we recreate the context
 func (v *V8Runtime) Reset() {
-	// Clear only per-request globals, keep preloaded bundle
-	// __ssrRender must persist across requests
-	v.context.RunScript(`
-		globalThis.__ssr_errors = [];
-	`, "reset.js")
+	if v.context != nil {
+		v.context.Close()
+	}
+	v.context = v8.NewContext(v.isolate)
 }
 
 // Destroy permanently destroys the runtime

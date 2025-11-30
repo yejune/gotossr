@@ -18,20 +18,7 @@ var clientRenderFunctionWithLayout = `hydrateRoot(document.getElementById("root"
 
 // SPA render functions - "router" mode: uses Router wrapping for true hydration
 // globalThis is never minified, so the result survives esbuild optimization
-// Now exports a callable function for preloaded bundles
-var serverSPARouterRenderFunction = `
-globalThis.__ssrRender = function(requestPath) {
-  try {
-    return renderToString(<StaticRouter location={requestPath}><App /></StaticRouter>);
-  } catch(e) {
-    globalThis.__ssr_errors.push('RENDER_ERROR: ' + (e.stack || e.message || String(e)));
-    return '';
-  }
-};
-// For backward compatibility, also execute immediately if props is defined
-if (typeof props !== 'undefined' && props.__requestPath) {
-  globalThis.__ssr_result = globalThis.__ssrRender(props.__requestPath);
-}`
+var serverSPARouterRenderFunction = `try { globalThis.__ssr_result = renderToString(<StaticRouter location={props.__requestPath}><App /></StaticRouter>); } catch(e) { globalThis.__ssr_errors.push('RENDER_ERROR: ' + (e.stack || e.message || String(e))); globalThis.__ssr_result = ''; }`
 var clientSPARouterRenderFunction = `hydrateRoot(document.getElementById("root"), <BrowserRouter><App /></BrowserRouter>);`
 
 // SPA render functions - "replace" mode: uses createRoot to replace SSR HTML (backward compatible)

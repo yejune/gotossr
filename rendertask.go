@@ -72,38 +72,12 @@ func (rt *renderTask) doRender(buildType string) {
 		return
 	}
 	if buildType == "server" && rt.engine.CachedServerSPAJS != "" {
-		// Check HTML cache first (production only for now)
-		if rt.engine.IsProduction() {
-			if cached, ok := rt.engine.htmlCache.Load(rt.config.RequestPath); ok {
-				rt.logger.Debug("SPA HTML cache hit", "requestPath", rt.config.RequestPath)
-				rt.serverRenderResult <- serverRenderResult{html: cached.(string), css: rt.engine.CachedServerSPACSS, err: nil}
-				return
-			}
-		}
-
-		var renderedHTML string
-		var err error
-
-		if rt.engine.BundlePreloaded {
-			// Fast path: bundle is preloaded, just call the render function
-			// This avoids reparsing 900KB+ of JavaScript on each request
-			renderCall := fmt.Sprintf(`globalThis.__ssrRender("%s")`, rt.config.RequestPath)
-			renderedHTML, err = rt.renderReactToHTML(renderCall)
-		} else {
-			// Slow path: inject props and run full bundle
-			js := injectSPAProps(rt.engine.CachedServerSPAJS, rt.config.RequestPath)
-			renderedHTML, err = rt.renderReactToHTML(js)
-		}
-
+		// Inject props with __requestPath for StaticRouter
+		js := injectSPAProps(rt.engine.CachedServerSPAJS, rt.config.RequestPath)
+		renderedHTML, err := rt.renderReactToHTML(js)
 		if err != nil {
 			rt.logger.Error("SPA server render error", "error", err, "requestPath", rt.config.RequestPath)
 		}
-
-		// Cache the result (production only)
-		if rt.engine.IsProduction() && err == nil && renderedHTML != "" {
-			rt.engine.htmlCache.Store(rt.config.RequestPath, renderedHTML)
-		}
-
 		rt.logger.Debug("SPA server render result", "htmlLen", len(renderedHTML), "requestPath", rt.config.RequestPath)
 		rt.serverRenderResult <- serverRenderResult{html: renderedHTML, css: rt.engine.CachedServerSPACSS, err: err}
 		return

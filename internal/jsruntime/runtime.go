@@ -1,10 +1,6 @@
 package jsruntime
 
-import (
-	"errors"
-	"sync"
-	"time"
-)
+import "sync"
 
 // RuntimeType represents the type of JavaScript runtime
 type RuntimeType string
@@ -21,8 +17,6 @@ var defaultRuntimeType RuntimeType
 type JSRuntime interface {
 	// Execute runs JavaScript code and returns the result as a string
 	Execute(code string) (string, error)
-	// Preload runs JavaScript code without returning a result (for loading bundles)
-	Preload(code string) error
 	// Close releases resources (called when returning to pool)
 	Reset()
 	// Destroy permanently destroys the runtime
@@ -41,10 +35,6 @@ type Pool struct {
 	// Track all created runtimes for proper cleanup
 	allRuntimes []JSRuntime
 	runtimesMu  sync.Mutex
-
-	// Preload code for overflow runtimes
-	preloadCode string
-	preloadMu   sync.RWMutex
 }
 
 // PoolConfig configures the runtime pool
@@ -85,21 +75,12 @@ func NewPool(config PoolConfig) *Pool {
 }
 
 // createRuntime creates a new runtime and tracks it
-// Also preloads bundle if preloadCode is set
 func (p *Pool) createRuntime() JSRuntime {
 	p.mu.Lock()
 	p.created++
 	p.mu.Unlock()
 
 	rt := newRuntime()
-
-	// Apply preload code if set (for overflow runtimes)
-	p.preloadMu.RLock()
-	code := p.preloadCode
-	p.preloadMu.RUnlock()
-	if code != "" {
-		rt.Preload(code)
-	}
 
 	// Track for cleanup
 	p.runtimesMu.Lock()
@@ -109,31 +90,18 @@ func (p *Pool) createRuntime() JSRuntime {
 	return rt
 }
 
-// PoolTimeout is the max time to wait for a runtime from pool
-const PoolTimeout = 100 * time.Millisecond
-
-// ErrPoolTimeout is returned when no runtime available within timeout
-var ErrPoolTimeout = errors.New("pool timeout: no runtime available")
-
-// Get retrieves a runtime from the pool with timeout
-// If no runtime available within PoolTimeout, creates a temporary one
+// Get retrieves a runtime from the pool
 func (p *Pool) Get() JSRuntime {
 	select {
 	case rt := <-p.pool:
 		return rt
-	case <-time.After(PoolTimeout):
-		// Pool exhausted, create overflow runtime (slower but prevents spike)
+	default:
+		// Pool is empty, create a new one
 		return p.createRuntime()
 	}
 }
 
-// GetBlocking retrieves a runtime, blocking indefinitely
-func (p *Pool) GetBlocking() JSRuntime {
-	return <-p.pool
-}
-
 // Put returns a runtime to the pool
-// If pool is full (overflow runtime), destroys the runtime instead
 func (p *Pool) Put(rt JSRuntime) {
 	p.mu.Lock()
 	closed := p.closed
@@ -145,12 +113,11 @@ func (p *Pool) Put(rt JSRuntime) {
 	}
 
 	rt.Reset()
-	// Try to return to pool, but destroy if full (overflow runtime)
 	select {
 	case p.pool <- rt:
 		// Successfully returned to pool
 	default:
-		// Pool is full (this was an overflow runtime), destroy it
+		// Pool is full, destroy the runtime
 		rt.Destroy()
 	}
 }
@@ -160,38 +127,6 @@ func (p *Pool) Execute(code string) (string, error) {
 	rt := p.Get()
 	defer p.Put(rt)
 	return rt.Execute(code)
-}
-
-// Preload runs preload code on all runtimes in the pool
-// This is used to load heavy bundles once, so subsequent Execute calls are fast
-// Also saves the code for overflow runtimes created later
-func (p *Pool) Preload(code string) error {
-	// Save for overflow runtimes
-	p.preloadMu.Lock()
-	p.preloadCode = code
-	p.preloadMu.Unlock()
-
-	// Drain all runtimes from pool
-	runtimes := make([]JSRuntime, 0, p.maxSize)
-	for i := 0; i < p.maxSize; i++ {
-		rt := <-p.pool
-		runtimes = append(runtimes, rt)
-	}
-
-	// Preload on each runtime
-	var lastErr error
-	for _, rt := range runtimes {
-		if err := rt.Preload(code); err != nil {
-			lastErr = err
-		}
-	}
-
-	// Return all runtimes to pool
-	for _, rt := range runtimes {
-		p.pool <- rt
-	}
-
-	return lastErr
 }
 
 // Stats returns pool statistics

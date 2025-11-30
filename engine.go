@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"sync"
 
 	"github.com/yejune/gotossr/internal/cache"
 	"github.com/yejune/gotossr/internal/jsruntime"
@@ -22,11 +21,6 @@ type Engine struct {
 	CachedClientSPAJS       string // Cached client SPA bundle JS
 	CachedServerSPAJS       string // Cached server SPA bundle JS (for StaticRouter rendering)
 	CachedServerSPACSS      string // Cached server SPA bundle CSS
-	BundlePreloaded         bool   // True if SPA bundle was preloaded into runtimes
-
-	// HTML cache for SPA routes (path -> rendered HTML)
-	// This eliminates SSR overhead for repeat requests to the same path
-	htmlCache sync.Map
 }
 
 // IsProduction returns true if running in production mode
@@ -159,16 +153,6 @@ func (engine *Engine) buildServerSPAApp() error {
 		lastPart = result.JS[jsLen-500:]
 	}
 	engine.Logger.Debug("Built server SPA app", "path", engine.Config.ClientAppPath, "mode", engine.Config.SPAHydrationMode, "jsLen", jsLen, "cssLen", len(result.CSS), "lastPart", lastPart)
-
-	// Preload the bundle into all runtimes for faster rendering
-	if engine.RuntimePool != nil {
-		if err := engine.RuntimePool.Preload(result.JS); err != nil {
-			engine.Logger.Error("Failed to preload SPA bundle", "error", err)
-			return err
-		}
-		engine.BundlePreloaded = true
-		engine.Logger.Debug("Preloaded SPA bundle into all runtimes", "poolSize", engine.Config.JSRuntimePoolSize)
-	}
 	return nil
 }
 
