@@ -47,12 +47,21 @@ func (engine *Engine) RenderRoute(renderConfig RenderConfig) []byte {
 		return html.RenderError(err, task.routeID)
 	}
 
+	// Add __requestPath to props for client hydration
+	propsWithRequestPath := props
+	if props == "null" || props == "" || props == "{}" {
+		propsWithRequestPath = fmt.Sprintf(`{"__requestPath":"%s"}`, renderConfig.RequestPath)
+	} else {
+		// Inject __requestPath into existing props JSON object
+		propsWithRequestPath = props[:len(props)-1] + fmt.Sprintf(`,"__requestPath":"%s"}`, renderConfig.RequestPath)
+	}
+
 	params := html.Params{
 		Title:      renderConfig.Title,
 		MetaTags:   renderConfig.MetaTags,
 		RouteID:    task.routeID,
 		ServerHTML: template.HTML(renderedHTML),
-		PropsJSON:  template.JS(props), // SSR props for client hydration
+		PropsJSON:  template.JS(propsWithRequestPath), // SSR props for client hydration (with __requestPath)
 	}
 
 	// External JS file mode: write JS to file and use <script src>
