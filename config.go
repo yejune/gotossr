@@ -31,6 +31,7 @@ type Config struct {
 	// When StaticJSDir is set, JS bundles are written to files instead of inlined in HTML.
 	// This enables browser caching - the React library bundle rarely changes and can be cached.
 	StaticJSDir string // Directory to write JS files (e.g., "frontend/dist/assets"). If empty, JS is inlined.
+	IsDev       bool   // Development mode - enables hot reload, disables caching
 }
 
 // Validate validates the config

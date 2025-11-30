@@ -65,7 +65,7 @@ func (engine *Engine) RenderRoute(renderConfig RenderConfig) []byte {
 	}
 
 	// External JS file mode: write JS to file and use <script src>
-	if engine.Config.StaticJSDir != "" {
+	if engine.Config.StaticJSDir != "" && !engine.Config.IsDev {
 		jsPath, err := engine.writeStaticJS(js, routeID)
 		if err != nil {
 			engine.Logger.Error("Failed to write static JS", "error", err)
