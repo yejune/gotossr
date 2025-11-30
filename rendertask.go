@@ -73,7 +73,14 @@ func (rt *renderTask) doRender(buildType string) {
 	}
 	if buildType == "server" && rt.engine.CachedServerSPAJS != "" {
 		// Use cached bundle with props injection for optimal performance
-		propsJSON := fmt.Sprintf(`{ "__requestPath": "%s" }`, rt.config.RequestPath)
+		// Merge user props with __requestPath for SPA routing
+		propsJSON := rt.props
+		if propsJSON == "null" || propsJSON == "" {
+			propsJSON = fmt.Sprintf(`{ "__requestPath": "%s" }`, rt.config.RequestPath)
+		} else {
+			// Inject __requestPath into existing props
+			propsJSON = fmt.Sprintf(`Object.assign(%s, { "__requestPath": "%s" })`, propsJSON, rt.config.RequestPath)
+		}
 		renderedHTML, err := rt.renderReactToHTMLWithProps(rt.engine.CachedServerSPAJS, propsJSON)
 		if err != nil {
 			rt.logger.Error("SPA server render error", "error", err, "requestPath", rt.config.RequestPath)
