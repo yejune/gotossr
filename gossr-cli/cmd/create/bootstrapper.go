@@ -45,7 +45,7 @@ func (b *Bootstrapper) cloneRepo() {
 
 func (b *Bootstrapper) moveGoFiles() {
 	logger.L.Info().Msg("Setting up Go files")
-	err := cp.Copy(b.TempDirPath+"/go-react-ssr/examples/"+strings.ToLower(b.WebFramework), b.ProjectDir)
+	err := cp.Copy(b.TempDirPath+"/gotossr/examples/"+strings.ToLower(b.WebFramework), b.ProjectDir)
 	if err != nil {
 		utils.HandleError(err)
 	}
@@ -66,11 +66,11 @@ func (b *Bootstrapper) setupBackend(wg *sync.WaitGroup) {
 
 func (b *Bootstrapper) createFrontendFolder() {
 	logger.L.Info().Msg("Creating /frontend folder")
-	frontendFolderFromGit := b.TempDirPath + "/go-react-ssr/examples/frontend"
+	frontendFolderFromGit := b.TempDirPath + "/gotossr/examples/frontend"
 	if b.StylingPlugin == "Tailwind" {
-		frontendFolderFromGit = b.TempDirPath + "/go-react-ssr/examples/frontend-tailwind"
+		frontendFolderFromGit = b.TempDirPath + "/gotossr/examples/frontend-tailwind"
 	} else if b.StylingPlugin == "Material UI" {
-		frontendFolderFromGit = b.TempDirPath + "/go-react-ssr/examples/frontend-mui"
+		frontendFolderFromGit = b.TempDirPath + "/gotossr/examples/frontend-mui"
 	}
 	err := cp.Copy(frontendFolderFromGit, b.ProjectDir+"/frontend")
 	if err != nil {

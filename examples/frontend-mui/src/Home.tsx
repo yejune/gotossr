@@ -18,7 +18,7 @@ function Home({ initialCount }: IndexRouteProps) {
       <div className="counter-container">
         <Counter count={count} increment={() => setCount(count + 1)} />
       </div>
-      <a href="https://github.com/yejune/go-react-ssr" target="_blank">
+      <a href="https://github.com/yejune/gotossr" target="_blank">
         View project on GitHub
       </a>
     </div>

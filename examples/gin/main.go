@@ -27,7 +27,7 @@ func main() {
 		HotReloadServerPort: 3012,
 	})
 	if err != nil {
-		log.Fatal("Failed to init go-react-ssr")
+		log.Fatal("Failed to init gotossr")
 	}
 
 	g.GET("/", func(c *gin.Context) {

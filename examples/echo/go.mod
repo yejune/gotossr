@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/stretchr/testify v1.11.1
-	github.com/yejune/go-react-ssr v0.0.0
+	github.com/yejune/gotossr v0.0.0
 )
 
 require (
@@ -37,4 +37,4 @@ require (
 	rogchap.com/v8go v0.9.0 // indirect
 )
 
-replace github.com/yejune/go-react-ssr => ../..
+replace github.com/yejune/gotossr => ../..

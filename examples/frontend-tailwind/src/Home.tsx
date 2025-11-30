@@ -17,7 +17,7 @@ function Home({ initialCount }: IndexRouteProps) {
       <div className="py-7">
         <Counter count={count} increment={() => setCount(count + 1)} />
       </div>
-      <a className="text-zinc-500 hover:underline" href="https://github.com/yejune/go-react-ssr" target="_blank">
+      <a className="text-zinc-500 hover:underline" href="https://github.com/yejune/gotossr" target="_blank">
         View project on GitHub
       </a>
     </div>

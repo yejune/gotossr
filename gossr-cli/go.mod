@@ -1,4 +1,4 @@
-module github.com/yejune/go-react-ssr/gossr-cli
+module github.com/yejune/gotossr/gossr-cli
 
 go 1.24.0
 

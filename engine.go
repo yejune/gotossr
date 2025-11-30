@@ -100,7 +100,7 @@ func New(config Config) (*Engine, error) {
 // It should be called when the server is shutting down.
 // The context can be used to set a timeout for the shutdown.
 func (engine *Engine) Shutdown(ctx context.Context) error {
-	engine.Logger.Info("Shutting down go-react-ssr engine")
+	engine.Logger.Info("Shutting down gotossr engine")
 
 	// Close the runtime pool
 	if engine.RuntimePool != nil {
@@ -119,7 +119,7 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	// Stop hot reload server (dev only)
 	engine.stopHotReload()
 
-	engine.Logger.Info("go-react-ssr engine shutdown complete")
+	engine.Logger.Info("gotossr engine shutdown complete")
 	return nil
 }
 

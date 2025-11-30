@@ -54,7 +54,7 @@ function Home({ initialCount }: IndexRouteProps) {
       <Row className="justify-content-center mt-4">
         <Col md={6} className="text-center">
           <a
-            href="https://github.com/yejune/go-react-ssr"
+            href="https://github.com/yejune/gotossr"
             target="_blank"
             className="btn btn-link"
           >

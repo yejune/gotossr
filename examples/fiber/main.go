@@ -31,7 +31,7 @@ func main() {
 		HotReloadServerPort: 3011,
 	})
 	if err != nil {
-		log.Fatal("Failed to init go-react-ssr")
+		log.Fatal("Failed to init gotossr")
 	}
 
 	app.Get("/", func(c *fiber.Ctx) error {

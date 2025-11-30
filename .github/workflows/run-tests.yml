@@ -1,43 +1,47 @@
-name: Run test suite
+name: Tests
+
 on:
   push:
     branches:
-      - "*"
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
-      - name: Install dependencies
-        run: go get .
+          go-version: "1.24"
+
       - name: Build
         run: go build -v ./...
-      - name: Test with the Go CLI
+
+      - name: Test
         run: go test -v ./...
+
       - name: Setup Node
-        uses: actions/setup-node@v3
-      - name: Install npm dependencies
-        working-directory: ./examples/frontend
-        run: npm install
+        uses: actions/setup-node@v4
+
       - name: Test Fiber example
-        run: go test -v ./examples/fiber
-      - name: Setup Node for tailwind example
-        uses: actions/setup-node@v3
-      - name: Install npm dependencies
-        working-directory: ./examples/frontend-tailwind
-        run: npm install
+        run: |
+          cd examples/frontend && npm install && cd ../..
+          go test -v ./examples/fiber
+
       - name: Test Gin example
-        run: go test -v ./examples/gin
-      - name: Setup Node for material ui example
-        uses: actions/setup-node@v3
-      - name: Install npm dependencies
-        working-directory: ./examples/frontend-mui
-        run: npm install
+        run: |
+          cd examples/frontend-tailwind && npm install && cd ../..
+          go test -v ./examples/gin
+
       - name: Test Echo example
-        run: go test -v ./examples/echo
+        run: |
+          cd examples/frontend-mui && npm install && cd ../..
+          go test -v ./examples/echo
+
+      - name: Install Bootstrap frontend
+        run: cd examples/frontend-bootstrap && npm install

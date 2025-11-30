@@ -10,8 +10,8 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "gossr-cli",
-	Short: "This application helps you get a go-react-ssr powered app up and running in no time.",
-	Long: `This application helps you get a go-react-ssr powered app up and running in no time.
+	Short: "This application helps you get a gotossr powered app up and running in no time.",
+	Long: `This application helps you get a gotossr powered app up and running in no time.
 	Complete documentation is available at https://github.com/yejune/gotossr`,
 }
 

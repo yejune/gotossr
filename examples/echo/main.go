@@ -28,7 +28,7 @@ func main() {
 		JSRuntimePoolSize:   50,
 	})
 	if err != nil {
-		log.Fatal("Failed to init go-react-ssr")
+		log.Fatal("Failed to init gotossr")
 	}
 
 	e.GET("/", func(c echo.Context) error {

@@ -10,7 +10,7 @@ COPY --from=build-frontend /build ./app/frontend
 WORKDIR /app
 
 RUN go mod download
-RUN go get -u github.com/yejune/go-react-ssr
+RUN go get -u github.com/yejune/gotossr
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -X main.APP_ENV=production" -a -o main
 
 RUN chmod +x ./main
