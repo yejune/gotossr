@@ -17,6 +17,7 @@ const BaseTemplate = `<!DOCTYPE html>
   </head>
   <body>
 	<div id="root">{{ .ServerHTML }}</div>
+	{{if .PropsJSON}}<script id="__SSR_PROPS__" type="application/json">{{ .PropsJSON }}</script>{{end}}
 	<script>
 	  function showError(error) {
 		document.getElementById(

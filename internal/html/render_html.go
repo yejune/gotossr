@@ -25,6 +25,7 @@ type Params struct {
 	JSPath     string // External JS file path (if set, use <script src> instead of inline)
 	CSS        template.CSS
 	CSSPath    string // External CSS file path (if set, use <link href> instead of inline)
+	PropsJSON  template.JS // SSR props as JSON for client hydration
 	RouteID    string
 	IsDev      bool
 	ServerHTML template.HTML

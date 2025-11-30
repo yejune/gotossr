@@ -52,6 +52,7 @@ func (engine *Engine) RenderRoute(renderConfig RenderConfig) []byte {
 		MetaTags:   renderConfig.MetaTags,
 		RouteID:    task.routeID,
 		ServerHTML: template.HTML(renderedHTML),
+		PropsJSON:  template.JS(props), // SSR props for client hydration
 	}
 
 	// External JS file mode: write JS to file and use <script src>

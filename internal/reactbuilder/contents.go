@@ -19,7 +19,10 @@ var clientRenderFunctionWithLayout = `hydrateRoot(document.getElementById("root"
 // SPA render functions - "router" mode: uses Router wrapping for true hydration
 // globalThis is never minified, so the result survives esbuild optimization
 var serverSPARouterRenderFunction = `try { globalThis.__ssr_result = renderToString(<StaticRouter location={props.__requestPath}><App {...props} /></StaticRouter>); } catch(e) { globalThis.__ssr_errors.push('RENDER_ERROR: ' + (e.stack || e.message || String(e))); globalThis.__ssr_result = ''; }`
-var clientSPARouterRenderFunction = `hydrateRoot(document.getElementById("root"), <BrowserRouter><App /></BrowserRouter>);`
+var clientSPARouterRenderFunction = `
+const ssrPropsEl = document.getElementById("__SSR_PROPS__");
+const ssrProps = ssrPropsEl ? JSON.parse(ssrPropsEl.textContent || "{}") : {};
+hydrateRoot(document.getElementById("root"), <BrowserRouter><App {...ssrProps} /></BrowserRouter>);`
 
 // SPA render functions - "replace" mode: uses createRoot to replace SSR HTML (backward compatible)
 var clientSPAReplaceRenderFunction = `
