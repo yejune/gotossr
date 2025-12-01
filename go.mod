@@ -11,8 +11,6 @@ require (
 	github.com/tommie/v8go v0.34.0
 )
 
-replace github.com/tommie/v8go => /Users/max/v8go
-
 require (
 	github.com/redis/go-redis/v9 v9.17.1
 	github.com/rosbit/dukgo v0.8.2

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/yejune/gotossr/internal/cache"
 	"github.com/yejune/gotossr/internal/utils"
@@ -15,7 +16,7 @@ type Config struct {
 	AssetRoute          string            // The route to serve assets from, e.g. "/assets"
 	FrontendDir         string            // The path to the frontend folder, where your React app lives
 	GeneratedTypesPath  string            // The path to the generated types file
-	PropsStructsPath    string            // The path to the Go structs file, the structs will be generated to TS types
+	PropsStructsPath    string            // The path to the Go structs file(s), comma-separated for multiple files
 	LayoutFilePath      string            // The path to the layout file, relative to the frontend dir
 	LayoutCSSFilePath   string            // The path to the layout css file, relative to the frontend dir
 	TailwindConfigPath  string            // The path to the tailwind config file
@@ -39,8 +40,14 @@ func (c *Config) Validate() error {
 	if !checkPathExists(c.FrontendDir) {
 		return fmt.Errorf("frontend dir at %s does not exist", c.FrontendDir)
 	}
-	if os.Getenv("APP_ENV") != "production" && !checkPathExists(c.PropsStructsPath) {
-		return fmt.Errorf("props structs path at %s does not exist", c.PropsStructsPath)
+	// Check all props struct paths (comma-separated)
+	if os.Getenv("APP_ENV") != "production" && c.PropsStructsPath != "" {
+		for _, p := range strings.Split(c.PropsStructsPath, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" && !checkPathExists(p) {
+				return fmt.Errorf("props structs path at %s does not exist", p)
+			}
+		}
 	}
 	if c.LayoutFilePath != "" && !checkPathExists(path.Join(c.FrontendDir, c.LayoutFilePath)) {
 		return fmt.Errorf("layout file path at %s/%s does not exist", c.FrontendDir, c.LayoutFilePath)
@@ -79,7 +86,17 @@ func (c *Config) Validate() error {
 func (c *Config) setFilePaths() {
 	c.FrontendDir = utils.GetFullFilePath(c.FrontendDir)
 	c.GeneratedTypesPath = utils.GetFullFilePath(c.GeneratedTypesPath)
-	c.PropsStructsPath = utils.GetFullFilePath(c.PropsStructsPath)
+	// Handle multiple props struct paths
+	if c.PropsStructsPath != "" {
+		var fullPaths []string
+		for _, p := range strings.Split(c.PropsStructsPath, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				fullPaths = append(fullPaths, utils.GetFullFilePath(p))
+			}
+		}
+		c.PropsStructsPath = strings.Join(fullPaths, ",")
+	}
 	if c.LayoutFilePath != "" {
 		c.LayoutFilePath = path.Join(c.FrontendDir, c.LayoutFilePath)
 	}

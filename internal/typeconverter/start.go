@@ -1,27 +1,53 @@
 package typeconverter
 
 import (
-	"github.com/yejune/gotossr/internal/utils"
 	"os/exec"
+	"strings"
+
+	"github.com/yejune/gotossr/internal/utils"
 
 	_ "github.com/tkrajina/typescriptify-golang-structs/typescriptify"
 )
 
 // Start starts the type converter
 // It gets the name of structs in PropsStructsPath and generates a temporary file to run the type converter
+// structsFilePath can be comma-separated for multiple files
 func Start(structsFilePath, generatedTypesPath string) error {
-	// Get struct names from file
-	structNames, err := getStructNamesFromFile(structsFilePath)
-	if err != nil {
-		return err
+	// Split by comma for multiple files
+	filePaths := strings.Split(structsFilePath, ",")
+
+	var allStructNames []string
+	var firstFilePath string
+
+	for _, fp := range filePaths {
+		fp = strings.TrimSpace(fp)
+		if fp == "" {
+			continue
+		}
+		if firstFilePath == "" {
+			firstFilePath = fp
+		}
+
+		// Get struct names from file
+		structNames, err := getStructNamesFromFile(fp)
+		if err != nil {
+			return err
+		}
+		allStructNames = append(allStructNames, structNames...)
 	}
+
+	if len(allStructNames) == 0 {
+		return nil
+	}
+
 	// Create a folder for the temporary generator files
 	cacheDir, err := utils.GetTypeConverterCacheDir()
 	if err != nil {
 		return err
 	}
-	// Create the generator file
-	temporaryFilePath, err := createTemporaryFile(structsFilePath, generatedTypesPath, cacheDir, structNames)
+
+	// Create the generator file (using first file path for package resolution)
+	temporaryFilePath, err := createTemporaryFileMulti(filePaths, generatedTypesPath, cacheDir, allStructNames)
 	if err != nil {
 		return err
 	}

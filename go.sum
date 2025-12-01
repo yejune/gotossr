@@ -57,6 +57,8 @@ github.com/tkrajina/go-reflector v0.5.8 h1:yPADHrwmUbMq4RGEyaOUpz2H90sRsETNVpjzo
 github.com/tkrajina/go-reflector v0.5.8/go.mod h1:ECbqLgccecY5kPmPmXg1MrHW585yMcDkVl6IvJe64T4=
 github.com/tkrajina/typescriptify-golang-structs v0.2.0 h1:ZedWk82egydDspGTryAatbX0/1NZDQbdiZLoCbOk4f8=
 github.com/tkrajina/typescriptify-golang-structs v0.2.0/go.mod h1:sjU00nti/PMEOZb07KljFlR+lJ+RotsC0GBQMv9EKls=
+github.com/tommie/v8go v0.34.0 h1:2NpX9bLE3DOO6cO2moOHsBkU70skMO6RB1tAY887G6c=
+github.com/tommie/v8go v0.34.0/go.mod h1:WX8r9Nwipf7pABuvwFpu6AFDpm3VSSvch2avhK2FMlg=
 github.com/tommie/v8go/deps/android_amd64 v0.0.0-20250515043113-5dcc98077472 h1:ALzwSQMOOUw1FN/tYp+a81w5AxkiR33N5jGEmFWBqfw=
 github.com/tommie/v8go/deps/android_amd64 v0.0.0-20250515043113-5dcc98077472/go.mod h1:+SU4RWSqMXAx2oR/Gzkyc1YAG6F8SCzttMv3sZkh+qY=
 github.com/tommie/v8go/deps/android_arm64 v0.0.0-20250515043113-5dcc98077472 h1:XDh1sWxxWPEQv+vxj5mbQaRqUfEycVvb8Z0r0NGSYf0=
