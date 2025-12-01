@@ -76,10 +76,16 @@ func GenerateClientBuildContents(imports []string, filePath string, useLayout bo
 
 // getReactRouterMajorVersion reads package.json and returns react-router-dom major version
 func getReactRouterMajorVersion(frontendDir string) int {
+	// Try current dir first, then parent dir (common structure: frontend/src with package.json in frontend/)
 	pkgPath := filepath.Join(frontendDir, "package.json")
 	data, err := os.ReadFile(pkgPath)
 	if err != nil {
-		return 6 // default to v6
+		// Try parent directory
+		pkgPath = filepath.Join(filepath.Dir(frontendDir), "package.json")
+		data, err = os.ReadFile(pkgPath)
+		if err != nil {
+			return 6 // default to v6
+		}
 	}
 	var pkg struct {
 		Dependencies map[string]string `json:"dependencies"`
